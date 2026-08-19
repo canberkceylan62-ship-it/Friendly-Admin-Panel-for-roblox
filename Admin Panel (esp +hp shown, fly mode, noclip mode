@@ -1,0 +1,350 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+if playerGui:FindFirstChild("AdminGui") then
+    playerGui.AdminGui:Destroy()
+end
+
+-- 1. MAIN GUI SETUP
+local gui = Instance.new("ScreenGui")
+gui.Name = "AdminGui"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 100
+gui.Parent = playerGui
+
+local iconBtn = Instance.new("TextButton")
+iconBtn.Size = UDim2.fromOffset(50, 50)
+iconBtn.Position = UDim2.new(0, 20, 0.5, -25)
+iconBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+iconBtn.Text = "⚡"
+iconBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+iconBtn.TextSize = 24
+iconBtn.Font = Enum.Font.SourceSansBold
+iconBtn.ZIndex = 100
+iconBtn.Parent = gui
+
+local iconCorner = Instance.new("UICorner")
+iconCorner.CornerRadius = UDim.new(0, 8)
+iconCorner.Parent = iconBtn
+
+local panel = Instance.new("Frame")
+panel.Size = UDim2.fromOffset(240, 255)
+panel.AnchorPoint = Vector2.new(0.5, 0.5)
+panel.Position = UDim2.new(0.5, 0, 0.5, 0)
+panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+panel.BorderSizePixel = 0
+panel.Visible = false
+panel.ZIndex = 10
+panel.Parent = gui
+
+local panelCorner = Instance.new("UICorner")
+panelCorner.CornerRadius = UDim.new(0, 10)
+panelCorner.Parent = panel
+
+local header = Instance.new("TextLabel")
+header.Size = UDim2.new(1, 0, 0, 30)
+header.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+header.Text = "  Admin Panel (Drag Here)"
+header.TextColor3 = Color3.fromRGB(200, 200, 200)
+header.Font = Enum.Font.SourceSansBold
+header.TextSize = 13
+header.TextXAlignment = Enum.TextXAlignment.Left
+header.ZIndex = 11
+header.Parent = panel
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 10)
+headerCorner.Parent = header
+
+-- FOOTER FOR KEYBIND INFO
+local footer = Instance.new("TextLabel")
+footer.Size = UDim2.new(1, 0, 0, 20)
+footer.Position = UDim2.new(0, 0, 1, -22)
+footer.BackgroundTransparency = 1
+footer.Text = "[K] Open/Close Menu"
+footer.TextColor3 = Color3.fromRGB(150, 150, 150)
+footer.Font = Enum.Font.SourceSansItalic
+footer.TextSize = 12
+footer.ZIndex = 11
+footer.Parent = panel
+
+-- 2. DRAGGING LOGIC
+local dragging, dragInput, dragStart, startPos
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = panel.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+header.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- 3. TOGGLE MENU
+local function toggleUI()
+    panel.Visible = not panel.Visible
+end
+
+iconBtn.MouseButton1Click:Connect(toggleUI)
+
+-- 4. BUTTON CREATOR
+local function createBtn(text, pos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.88, 0, 0, 36)
+    btn.Position = pos
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 14
+    btn.ZIndex = 12
+    btn.Parent = panel
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = btn
+    btn.MouseButton1Click:Connect(callback)
+end
+
+-- 5. ESP LOGIC ENGINE
+local espEnabled = false
+local espConnections = {}
+
+local function addESP(targetCharacter)
+    if not targetCharacter or targetCharacter == player.Character then return end
+
+    local oldHighlight = targetCharacter:FindFirstChild("PlayerESP")
+    if oldHighlight then oldHighlight:Destroy() end
+
+    local oldBillboard = targetCharacter:FindFirstChild("HealthESP")
+    if oldBillboard then oldBillboard:Destroy() end
+
+    if not espEnabled then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "PlayerESP"
+    highlight.Adornee = targetCharacter
+    highlight.FillColor = Color3.fromRGB(255, 50, 50)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.65
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = targetCharacter
+
+    local humanoid = targetCharacter:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
+
+    local head = targetCharacter:WaitForChild("Head", 5)
+    if not head then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "HealthESP"
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 100, 0, 40)
+    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 1000
+    billboard.Parent = targetCharacter
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    textLabel.TextStrokeTransparency = 0.3
+    textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.TextSize = 18
+    textLabel.Text = math.floor(humanoid.Health) .. " HP"
+    textLabel.Parent = billboard
+
+    local healthConnection
+    healthConnection = humanoid.HealthChanged:Connect(function(newHealth)
+        if newHealth <= 0 then
+            textLabel.Text = "DEAD"
+            textLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        else
+            textLabel.Text = math.floor(newHealth) .. " HP"
+            if newHealth <= 30 then
+                textLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+            elseif newHealth <= 60 then
+                textLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
+            else
+                textLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            end
+        end
+    end)
+
+    humanoid.Died:Connect(function()
+        textLabel.Text = "DEAD"
+        textLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end)
+
+    targetCharacter.AncestryChanged:Connect(function(_, parent)
+        if not parent and healthConnection then
+            healthConnection:Disconnect()
+        end
+    end)
+end
+
+local function setupPlayer(targetPlayer)
+    if targetPlayer == player then return end
+
+    local charAddedConn = targetPlayer.CharacterAdded:Connect(function(character)
+        task.wait(0.15)
+        if espEnabled then addESP(character) end
+    end)
+    table.insert(espConnections, charAddedConn)
+
+    if targetPlayer.Character and espEnabled then
+        addESP(targetPlayer.Character)
+    end
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+for _, p in ipairs(Players:GetPlayers()) do
+    setupPlayer(p)
+end
+
+-- 6. ACTION LOGIC
+local flying = false
+local noclip = false
+local regen = false
+local bodyVelocity, bodyGyro
+local noclipConnection
+
+-- TOGGLE FLY FUNCTION
+local function toggleFly()
+    flying = not flying
+    local char = player.Character
+    if not char then return end
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+
+    if flying then
+        bodyVelocity = Instance.new("BodyVelocity", rootPart)
+        bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        bodyVelocity.Velocity = Vector3.zero
+        bodyGyro = Instance.new("BodyGyro", rootPart)
+        bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+        bodyGyro.CFrame = rootPart.CFrame
+
+        task.spawn(function()
+            local camera = workspace.CurrentCamera
+            while flying and char and rootPart do
+                local moveDir = Vector3.zero
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.E) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Q) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+                bodyVelocity.Velocity = moveDir * 70
+                bodyGyro.CFrame = camera.CFrame
+                task.wait()
+            end
+        end)
+    else
+        if bodyVelocity then bodyVelocity:Destroy() end
+        if bodyGyro then bodyGyro:Destroy() end
+    end
+end
+
+-- FLY MODE (Toggle) [L]
+createBtn("Fly (Toggle) [L]", UDim2.new(0.06, 0, 0.16, 0), toggleFly)
+
+-- NOCLIP MODE (Toggle)
+createBtn("Noclip (Toggle)", UDim2.new(0.06, 0, 0.33, 0), function()
+    noclip = not noclip
+    if noclipConnection then noclipConnection:Disconnect() end
+
+    if noclip then
+        noclipConnection = RunService.Stepped:Connect(function()
+            local char = player.Character
+            if char and noclip then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        -- FIX: Restore collisions on all character parts when turned off
+        local char = player.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end)
+
+-- REGEN HP (Toggle - 15 HP every 5 seconds)
+createBtn("Regen HP (Toggle)", UDim2.new(0.06, 0, 0.50, 0), function()
+    regen = not regen
+
+    if regen then
+        task.spawn(function()
+            while regen do
+                task.wait(5) -- Wait 5 seconds before each tick
+                if not regen then break end
+
+                local char = player.Character
+                if char then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 and hum.Health < hum.MaxHealth then
+                        -- Adds 15 HP directly, capped at MaxHealth
+                        hum.Health = math.min(hum.MaxHealth, hum.Health + 15)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ESP MODE (Toggle)
+createBtn("ESP (Toggle)", UDim2.new(0.06, 0, 0.67, 0), function()
+    espEnabled = not espEnabled
+
+    for _, otherPlayer in ipairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            if espEnabled then
+                addESP(otherPlayer.Character)
+            else
+                local oldHighlight = otherPlayer.Character:FindFirstChild("PlayerESP")
+                if oldHighlight then oldHighlight:Destroy() end
+
+                local oldBillboard = otherPlayer.Character:FindFirstChild("HealthESP")
+                if oldBillboard then oldBillboard:Destroy() end
+            end
+        end
+    end
+end)
+
+-- 7. KEYBOARD SHORTCUTS
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end -- Ignores key presses while typing in chat
+
+    if input.KeyCode == Enum.KeyCode.K then
+        toggleUI()
+    elseif input.KeyCode == Enum.KeyCode.L then
+        toggleFly()
+    end
+end)
