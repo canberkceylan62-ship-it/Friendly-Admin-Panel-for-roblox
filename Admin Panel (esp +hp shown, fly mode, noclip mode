@@ -227,25 +227,33 @@ local regen = false
 local bodyVelocity, bodyGyro
 local noclipConnection
 
--- TOGGLE FLY FUNCTION
+-- TOGGLE FLY FUNCTION (MODIFIED: Character pitches & aligns with Camera direction)
 local function toggleFly()
     flying = not flying
     local char = player.Character
     if not char then return end
     local rootPart = char:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not rootPart or not humanoid then return end
 
     if flying then
-        bodyVelocity = Instance.new("BodyVelocity", rootPart)
+        humanoid.PlatformStand = true
+        humanoid.AutoRotate = false
+
+        bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
         bodyVelocity.Velocity = Vector3.zero
-        bodyGyro = Instance.new("BodyGyro", rootPart)
+        bodyVelocity.Parent = rootPart
+
+        bodyGyro = Instance.new("BodyGyro")
         bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+        bodyGyro.P = 9e4
         bodyGyro.CFrame = rootPart.CFrame
+        bodyGyro.Parent = rootPart
 
         task.spawn(function()
             local camera = workspace.CurrentCamera
-            while flying and char and rootPart do
+            while flying and char and rootPart and humanoid do
                 local moveDir = Vector3.zero
                 if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camera.CFrame.LookVector end
                 if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camera.CFrame.LookVector end
@@ -253,7 +261,9 @@ local function toggleFly()
                 if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camera.CFrame.RightVector end
                 if UserInputService:IsKeyDown(Enum.KeyCode.E) then moveDir = moveDir + Vector3.new(0, 1, 0) end
                 if UserInputService:IsKeyDown(Enum.KeyCode.Q) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+                
                 bodyVelocity.Velocity = moveDir * 70
+                -- Directly aligns character pitch, roll, and yaw to camera CFrame
                 bodyGyro.CFrame = camera.CFrame
                 task.wait()
             end
@@ -261,6 +271,8 @@ local function toggleFly()
     else
         if bodyVelocity then bodyVelocity:Destroy() end
         if bodyGyro then bodyGyro:Destroy() end
+        humanoid.PlatformStand = false
+        humanoid.AutoRotate = true
     end
 end
 
